@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: image-manager-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root123456      # root 密码保持不变或随意
+      MYSQL_DATABASE: image_manager
+      MYSQL_USER: XRAY                     # ← 改成 XRAY
+      MYSQL_PASSWORD: 12345678ab           # ← 改成 12345678ab
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  mysql-data:
