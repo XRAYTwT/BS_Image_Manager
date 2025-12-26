@@ -16,3 +16,32 @@ Content-Type: application/json
   "username": "huangwenxi",
   "password": "12345678"
 }
+
+### 图片上传测试
+# 要用Postman测试，用HTTP会出错
+# 改成你所需要的图片路径
+# ← 改成您注册用户的 id（在 Database 面板 users 表里看 id 列，第一条用户通常是 1）
+POST http://localhost:8080/api/image/upload
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="test.jpg"
+Content-Type: image/jpeg
+
+<./test3.jpg
+
+--WebAppBoundary
+Content-Disposition: form-data; name="userId"
+
+1
+
+--WebAppBoundary--
+
+### 4. 查询我的图片
+GET http://localhost:8080/api/image/my?userId=1
+
+### 5. 删除图片（把 ID 改成实际）   就是X?userId=1中的X
+DELETE http://localhost:8080/api/image/2?userId=1
+
+### 6. 查询图片
+GET http://localhost:8080/api/image/search?tag=风景
