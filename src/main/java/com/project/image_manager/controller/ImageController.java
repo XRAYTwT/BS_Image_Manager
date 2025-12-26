@@ -1,7 +1,6 @@
 package com.project.image_manager.controller;
 
 
-
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.lang.GeoLocation;
 import com.drew.metadata.Metadata;
@@ -19,11 +18,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import net.coobird.thumbnailator.filters.*;
 
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.awt.image.RescaleOp;
 import java.io.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -190,6 +195,7 @@ public class ImageController {
                 .collect(Collectors.toList());
     }
 
+    // 删除图片
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteImage(@PathVariable Long id, @RequestParam Long userId) {
         Optional<Image> imgOpt = imageRepository.findById(id);
@@ -206,5 +212,125 @@ public class ImageController {
 
         imageRepository.delete(image);
         return ResponseEntity.ok("删除成功");
+    }
+
+    // 编辑图片
+    @PostMapping("/edit")
+    public ResponseEntity<String> editImage(@RequestParam Long imageId,
+                                            @RequestParam(required = false) Integer rotate,  // 旋转
+                                            @RequestParam(required = false) Double contrast,  // 对比度调整 0.5-2.0 (明显变化)
+                                            @RequestParam(required = false) Double tint,  // 暖冷调
+                                            @RequestParam(required = false) Double saturation,  // 饱和度
+                                            @RequestParam(required = false) Integer cropX,
+                                            @RequestParam(required = false) Integer cropY,
+                                            @RequestParam(required = false) Integer cropWidth,
+                                            @RequestParam(required = false) Integer cropHeight) {
+        Optional<Image> imgOpt = imageRepository.findById(imageId);
+        if (imgOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("图片不存在");
+        }
+        Image image = imgOpt.get();
+        String originalPath = UPLOAD_DIR + image.getOriginalPath().substring("/uploads/".length());
+
+        try {
+            BufferedImage bufferedImage = ImageIO.read(new File(originalPath));
+
+            // 旋转
+            if (rotate != null) {
+                bufferedImage = Thumbnails.of(bufferedImage).rotate(rotate).scale(1.0).asBufferedImage();
+            }
+
+            // 裁剪
+            if (cropX != null && cropY != null && cropWidth != null && cropHeight != null) {
+                bufferedImage = Thumbnails.of(bufferedImage).sourceRegion(cropX, cropY, cropWidth, cropHeight).scale(1.0).asBufferedImage();
+            }
+
+            // 对比度调整（明显变化！）
+            if (contrast != null) {
+                double clamped = Math.max(0.5, Math.min(2.0, contrast));
+                RescaleOp op = new RescaleOp((float) clamped, 0, null);
+                bufferedImage = op.filter(bufferedImage, null);
+            }
+
+            // 饱和度调整
+            if (saturation != null) {
+                double clamped = Math.max(0.0, Math.min(2.0, saturation));
+                for (int y = 0; y < bufferedImage.getHeight(); y++) {
+                    for (int x = 0; x < bufferedImage.getWidth(); x++) {
+                        Color color = new Color(bufferedImage.getRGB(x, y));
+                        float[] hsv = Color.RGBtoHSB(color.getRed(), color.getGreen(), color.getBlue(), null);
+                        hsv[1] *= clamped;
+                        if (hsv[1] > 1.0f) hsv[1] = 1.0f;
+                        bufferedImage.setRGB(x, y, Color.HSBtoRGB(hsv[0], hsv[1], hsv[2]));
+                    }
+                }
+            }
+
+            // 色调偏移
+            if (tint != null) {
+                double clamped = Math.max(-1.0, Math.min(1.0, tint));
+                double amount = Math.abs(clamped);
+                Color tintColor = clamped > 0 ? new Color(255, 100, 0) : new Color(0, 100, 255);
+                bufferedImage = Thumbnails.of(bufferedImage).addFilter(new Colorize(tintColor, (float) amount)).scale(1.0).asBufferedImage();
+            }
+
+            // 保存新图片
+            String editedFileName = "edited_" + UUID.randomUUID() + "_" + image.getFileName();
+            String editedPath = UPLOAD_DIR + editedFileName;
+            ImageIO.write(bufferedImage, "jpg", new File(editedPath));
+
+            // 生成缩略图
+            String thumbFileName = "thumb_" + editedFileName;
+            Thumbnails.of(editedPath).size(300, 300).keepAspectRatio(true).toFile(THUMB_DIR + thumbFileName);
+
+            // 保存数据库
+            Image newImage = new Image();
+            newImage.setUser(image.getUser());
+            newImage.setOriginalPath("/uploads/" + editedFileName);
+            newImage.setThumbnailPath("/uploads/thumbs/" + thumbFileName);
+            newImage.setFileName("edited_" + image.getFileName());
+            newImage.setTags(image.getTags() + ",edited");
+            newImage.setExifData(image.getExifData());
+            imageRepository.save(newImage);
+
+            return ResponseEntity.ok("编辑成功！新图片ID: " + newImage.getId());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("编辑失败: " + e.getMessage());
+        }
+    }
+
+    // 添加标签
+    @PutMapping("/{id}/tags")
+    public ResponseEntity<String> addTags(@PathVariable Long id,
+                                          @RequestParam String tags,  // 新标签，逗号分隔
+                                          @RequestParam Long userId) {  // 验证权限
+        Optional<Image> imgOpt = imageRepository.findById(id);
+        if (imgOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("图片不存在");
+        }
+        Image image = imgOpt.get();
+        if (!image.getUser().getId().equals(userId)) {
+            return ResponseEntity.badRequest().body("无权限操作");
+        }
+
+        // 追加标签（去重，逗号分隔）
+        String currentTags = image.getTags() == null ? "" : image.getTags();
+        String[] newTags = tags.split(",");
+        StringBuilder updatedTags = new StringBuilder(currentTags);
+
+        for (String tag : newTags) {
+            tag = tag.trim();
+            if (!tag.isEmpty() && !currentTags.contains(tag)) {
+                if (updatedTags.length() > 0) {
+                    updatedTags.append(",");
+                }
+                updatedTags.append(tag);
+            }
+        }
+
+        image.setTags(updatedTags.toString());
+        imageRepository.save(image);
+
+        return ResponseEntity.ok("标签添加成功！当前标签: " + image.getTags());
     }
 }

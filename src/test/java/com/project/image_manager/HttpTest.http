@@ -1,4 +1,4 @@
-### 用户注册测试
+### 1. 用户注册测试
 POST http://localhost:8080/api/user/register
 Content-Type: application/json
 
@@ -8,7 +8,7 @@ Content-Type: application/json
   "email": "huangwenxi@zju.edu.cn"
 }
 
-### 用户登录测试
+### 2. 用户登录测试
 POST http://localhost:8080/api/user/login
 Content-Type: application/json
 
@@ -17,7 +17,7 @@ Content-Type: application/json
   "password": "12345678"
 }
 
-### 图片上传测试
+### 3. 图片上传测试
 # 要用Postman测试，用HTTP会出错
 # 改成你所需要的图片路径
 # ← 改成您注册用户的 id（在 Database 面板 users 表里看 id 列，第一条用户通常是 1）
@@ -45,3 +45,76 @@ DELETE http://localhost:8080/api/image/2?userId=1
 
 ### 6. 查询图片
 GET http://localhost:8080/api/image/search?tag=风景
+
+### 7. 编辑图片
+### 7.1 编辑测试 - 旋转90度
+POST http://localhost:8080/api/image/edit
+Content-Type: application/x-www-form-urlencoded
+
+imageId=18&rotate=90
+
+### 7.2 编辑测试 - 旋转180度
+POST http://localhost:8080/api/image/edit
+Content-Type: application/x-www-form-urlencoded
+
+imageId=18&rotate=180
+
+### 7.3 编辑测试 - 色调偏移（偏暖，橙色调）
+POST http://localhost:8080/api/image/edit
+Content-Type: application/x-www-form-urlencoded
+
+imageId=18&tint=0.5
+
+### 7.4 编辑测试 - 色调偏移（偏冷，蓝色调）
+POST http://localhost:8080/api/image/edit
+Content-Type: application/x-www-form-urlencoded
+
+imageId=18&tint=-0.5
+
+### 7.5 编辑测试 - 裁剪（左上角 200x200）
+POST http://localhost:8080/api/image/edit
+Content-Type: application/x-www-form-urlencoded
+
+imageId=18&cropX=0&cropY=0&cropWidth=200&cropHeight=200
+
+### 7.6 饱和度调整测试 - 增加饱和度
+POST http://localhost:8080/api/image/edit
+Content-Type: application/x-www-form-urlencoded
+
+imageId=18&saturation=1.5
+
+### 7.7 饱和度调整测试 - 减少饱和度（灰度效果）
+POST http://localhost:8080/api/image/edit
+Content-Type: application/x-www-form-urlencoded
+
+imageId=18&saturation=0.5
+
+### 7.8 对比度增强测试
+POST http://localhost:8080/api/image/edit
+Content-Type: application/x-www-form-urlencoded
+
+imageId=18&contrast=1.5
+
+### 7.9 对比度降低测试
+POST http://localhost:8080/api/image/edit
+Content-Type: application/x-www-form-urlencoded
+
+imageId=18&contrast=0.8
+
+### 7.10 综合编辑测试
+POST http://localhost:8080/api/image/edit
+Content-Type: application/x-www-form-urlencoded
+
+imageId=18&rotate=90&contrast=1.5&saturation=1.5&tint=0.3&cropX=0&cropY=0&cropWidth=400&cropHeight=400
+
+### 8.1 给已有图片增加标签测试
+PUT http://localhost:8080/api/image/50/tags
+Content-Type: application/x-www-form-urlencoded
+
+tags=风景,夜晚,杭州&userId=1
+
+### 8.2 再次追加标签（测试去重）
+PUT http://localhost:8080/api/image/50/tags
+Content-Type: application/x-www-form-urlencoded
+
+tags=杭州,旅行,2025&userId=1
