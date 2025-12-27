@@ -22,10 +22,7 @@
 <nav class="navbar navbar-dark bg-dark fixed-top">
     <div class="container-fluid">
         <a class="navbar-brand" href="#">图片管理网站</a>
-        <div>
-            <span class="navbar-text me-3" id="userInfo">未登录</span>
-            <button class="btn btn-outline-danger btn-sm" id="logoutBtn" style="display:none;" onclick="logout()">退出登录</button>
-        </div>
+        <span class="navbar-text" id="userInfo">未登录</span>
     </div>
 </nav>
 
@@ -88,7 +85,6 @@
         document.getElementById('authSection').style.display = 'none';
         document.getElementById('mainSection').style.display = 'block';
         document.getElementById('userInfo').textContent = '用户ID: ' + userId;
-        document.getElementById('logoutBtn').style.display = 'inline-block';
         loadMyImages();
     }
 
@@ -119,7 +115,7 @@
         const password = document.getElementById('password').value;
         if (!username || !password) return alert("请填写用户名和密码");
 
-        const res = await fetch('http://localhost:8080/api/user/login', {
+        const res = await fetch('api/user/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -128,27 +124,17 @@
         if (res.ok) {
             const data = await res.json();
             token = data.token;
-            userId = data.userId;  // 自动获取 userId
             localStorage.setItem('token', token);
-            localStorage.setItem('userId', userId);
-            location.reload();
+
+            userId = prompt("登录成功！请输入您的用户ID（在Database面板users表查看id列）");
+            if (userId) {
+                localStorage.setItem('userId', userId);
+                location.reload();
+            }
         } else {
             const msg = await res.text();
-            alert("登录失败：用户名或密码错误！");
+            alert("登录失败：" + msg);
         }
-    }
-
-    function logout() {
-        if (!confirm("确定退出登录？")) return;
-        localStorage.removeItem('token');
-        localStorage.removeItem('userId');
-        token = null;
-        userId = null;
-        document.getElementById('authSection').style.display = 'block';
-        document.getElementById('mainSection').style.display = 'none';
-        document.getElementById('userInfo').textContent = '未登录';
-        document.getElementById('logoutBtn').style.display = 'none';
-        document.getElementById('imageGrid').innerHTML = '';
     }
 
     async function uploadImage() {

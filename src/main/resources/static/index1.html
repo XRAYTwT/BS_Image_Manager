@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片管理网站 - 黄文曦</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/css/lightbox.min.css" rel="stylesheet">
+    <style>
+        body { padding-top: 56px; }
+        .thumb { cursor: pointer; transition: transform 0.2s; }
+        .thumb:hover { transform: scale(1.05); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">图片管理网站</a>
+        <span class="navbar-text" id="userInfo">未登录</span>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <!-- 登录/注册表单 -->
+    <div id="authSection" class="card mb-4">
+        <div class="card-header">用户认证</div>
+        <div class="card-body">
+            <div id="loginForm">
+                <div class="mb-3">
+                    <input type="text" id="username" class="form-control" placeholder="用户名">
+                </div>
+                <div class="mb-3">
+                    <input type="password" id="password" class="form-control" placeholder="密码">
+                </div>
+                <button class="btn btn-primary me-2" onclick="login()">登录</button>
+                <button class="btn btn-secondary" onclick="register()">注册</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 上传和查询（登录后显示） -->
+    <div id="mainSection" style="display:none;">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">上传图片</div>
+                    <div class="card-body">
+                        <input type="file" id="uploadFile" class="form-control mb-2" accept="image/*">
+                        <input type="text" id="uploadTags" class="form-control mb-2" placeholder="自定义标签（逗号分隔）">
+                        <button class="btn btn-success" onclick="uploadImage()">上传</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">搜索图片</div>
+                    <div class="card-body">
+                        <input type="text" id="searchTag" class="form-control" placeholder="输入标签搜索">
+                        <button class="btn btn-info mt-2" onclick="searchImages()">搜索</button>
+                        <button class="btn btn-secondary mt-2" onclick="loadMyImages()">我的图片</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h3>图片展示</h3>
+        <div id="imageGrid" class="grid"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox.min.js"></script>
+<script>
+    let token = localStorage.getItem('token');
+    let userId = localStorage.getItem('userId');
+
+    if (token && userId) {
+        document.getElementById('authSection').style.display = 'none';
+        document.getElementById('mainSection').style.display = 'block';
+        document.getElementById('userInfo').textContent = '用户ID: ' + userId;
+        loadMyImages();
+    }
+
+    async function register() {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        if (!username || !password) return alert("请填写用户名和密码");
+        const email = username + "@zju.edu.cn";  // 自动生成email
+        const res = await fetch('http://localhost:8080/api/user/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, email })
+        });
+        const msg = await res.text();
+        alert(msg);
+        if (res.ok) {
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+    }
+
+    async function login() {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        if (!username || !password) return alert("请填写用户名和密码");
+
+        const res = await fetch('/api/user/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            token = data.token;
+            localStorage.setItem('token', token);
+
+            // 自动获取 userId（通过用户名查询，简单方式）
+            // 实际项目可用JWT解析，这里用后端临时接口或手动
+            // 简化：登录成功后从数据库查（或让用户输入一次）
+            userId = prompt("登录成功！请输入您的用户ID（Database面板users表id列查看）");
+            if (userId) {
+                localStorage.setItem('userId', userId);
+                location.reload();
+            }
+        } else {
+            alert("登录失败：用户名或密码错误");
+        }
+    }
+
+    async function uploadImage() {
+        const file = document.getElementById('uploadFile').files[0];
+        const tags = document.getElementById('uploadTags').value;
+        if (!file) return alert("请选择文件");
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('userId', userId);
+        if (tags) formData.append('tags', tags);
+
+        const res = await fetch('/api/image/upload', {
+            method: 'POST',
+            body: formData
+        });
+        alert(await res.text());
+        loadMyImages();
+    }
+
+    async function loadMyImages() {
+        const res = await fetch(`/api/image/my?userId=${userId}`);
+        const images = await res.json();
+        displayImages(images);
+    }
+
+    async function searchImages() {
+        const tag = document.getElementById('searchTag').value;
+        if (!tag) return loadMyImages();
+        const res = await fetch(`/api/image/search?tag=${tag}`);
+        const images = await res.json();
+        displayImages(images);
+    }
+
+    function displayImages(images) {
+        const grid = document.getElementById('imageGrid');
+        grid.innerHTML = '';
+        images.forEach(img => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.innerHTML = `
+                    <a href="${img.originalPath}" data-lightbox="gallery" data-title="${img.fileName}<br>标签: ${img.tags || '无'}<br>EXIF: ${img.exifData}">
+                        <img src="${img.thumbnailPath}" class="card-img-top thumb">
+                    </a>
+                    <div class="card-body">
+                        <p class="card-text"><small>${img.fileName}<br>标签: ${img.tags || '无'}</small></p>
+                        <button class="btn btn-sm btn-warning" onclick="editImage(${img.id})">编辑</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteImage(${img.id})">删除</button>
+                        <button class="btn btn-sm btn-info" onclick="addTags(${img.id})">加标签</button>
+                    </div>
+                `;
+            grid.appendChild(div);
+        });
+    }
+
+    function deleteImage(id) {
+        if (!confirm("确定删除？")) return;
+        fetch(`/api/image/${id}?userId=${userId}`, { method: 'DELETE' })
+            .then(res => res.text())
+            .then(alert)
+            .then(loadMyImages);
+    }
+
+    function addTags(id) {
+        const tags = prompt("输入新标签（逗号分隔）");
+        if (!tags) return;
+        fetch(`/api/image/${id}/tags?tags=${encodeURIComponent(tags)}&userId=${userId}`, { method: 'PUT' })
+            .then(res => res.text())
+            .then(alert)
+            .then(loadMyImages);
+    }
+
+    function editImage(id) {
+        const params = prompt("输入编辑参数（格式: rotate=90,quality=1.0,tint=0.5,saturation=1.5,crop=0,0,200,200）", "rotate=90");
+        if (!params) return;
+        const formData = new URLSearchParams();
+        formData.append('imageId', id);
+        params.split(',').forEach(p => {
+            const [k, v] = p.split('=');
+            if (k && v) formData.append(k.trim(), v.trim());
+        });
+        fetch('/api/image/edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData
+        })
+            .then(res => res.text())
+            .then(alert)
+            .then(loadMyImages);
+    }
+</script>
+</body>
+</html>

@@ -12,11 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
-import org.springframework.stereotype.Component;
-import java.util.Date;
+
 import java.util.Optional;
 
 
@@ -68,20 +64,34 @@ public class UserController {
     }
 
     // 登录接口
+//    @PostMapping("/login")
+//    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+//        Optional<User> userOptional = userRepository.findByUsername(loginRequest.getUsername());
+//        if (userOptional.isEmpty()) {
+//            return ResponseEntity.badRequest().body("用户名不存在");
+//        }
+//        User user = userOptional.get();
+//        if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+//            return ResponseEntity.badRequest().body("密码错误");
+//        }
+//
+//        // 生成 JWT token
+//        String token = jwtUtil.generateToken(user.getUsername());
+//        return ResponseEntity.ok(new LoginResponse(token));
+//    }
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest loginRequest) {
         Optional<User> userOptional = userRepository.findByUsername(loginRequest.getUsername());
         if (userOptional.isEmpty()) {
-            return ResponseEntity.badRequest().body("用户名不存在");
+            return ResponseEntity.badRequest().body(null);
         }
         User user = userOptional.get();
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
-            return ResponseEntity.badRequest().body("密码错误");
+            return ResponseEntity.badRequest().body(null);
         }
 
-        // 生成 JWT token
         String token = jwtUtil.generateToken(user.getUsername());
-        return ResponseEntity.ok(new LoginResponse(token));
+        return ResponseEntity.ok(new LoginResponse(token, user.getId()));  // 返回 token 和 userId
     }
 
     // 登录请求体
@@ -98,7 +108,20 @@ public class UserController {
     // 登录响应体
     static class LoginResponse {
         private String token;
-        public LoginResponse(String token) { this.token = token; }
-        public String getToken() { return token; }
+        private Long userId;  // 新增 userId
+
+        public LoginResponse(String token, Long userId) {
+            this.token = token;
+            this.userId = userId;
+        }
+
+        public String getToken() {
+            return token;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
     }
 }
+

@@ -118,3 +118,27 @@ PUT http://localhost:8080/api/image/50/tags
 Content-Type: application/x-www-form-urlencoded
 
 tags=杭州,旅行,2025&userId=1
+
+### 8.3 删除标签测试1 - 删除单个标签
+DELETE http://localhost:8080/api/image/50/tags
+Content-Type: application/x-www-form-urlencoded
+
+tag=风景&userId=1
+
+### 8.4 删除标签测试2 - 删除不存在的标签（应返回无标签可删除）
+DELETE http://localhost:8080/api/image/50/tags
+Content-Type: application/x-www-form-urlencoded
+
+tag=不存在的标签&userId=1
+
+### 8.5 删除标签测试3 - 删除最后一个标签（标签变为空）
+DELETE http://localhost:8080/api/image/50/tags
+Content-Type: application/x-www-form-urlencoded
+
+tag=旅行&userId=1
+
+### 8.6 删除标签测试4 - 无权限测试（用其他用户ID）
+DELETE http://localhost:8080/api/image/50/tags
+Content-Type: application/x-www-form-urlencoded
+
+tag=风景&userId=999  # 假设不存在的用户ID，应返回无权限

@@ -333,4 +333,34 @@ public class ImageController {
 
         return ResponseEntity.ok("标签添加成功！当前标签: " + image.getTags());
     }
+
+    @DeleteMapping("/{id}/tags")
+    public ResponseEntity<String> removeTag(@PathVariable Long id,
+                                            @RequestParam String tag,
+                                            @RequestParam Long userId) {
+        Optional<Image> imgOpt = imageRepository.findById(id);
+        if (imgOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("图片不存在");
+        }
+        Image image = imgOpt.get();
+        if (!image.getUser().getId().equals(userId)) {
+            return ResponseEntity.badRequest().body("无权限");
+        }
+
+        String tags = image.getTags();
+        if (tags == null || tags.isEmpty()) {
+            return ResponseEntity.ok("无标签可删除");
+        }
+
+        // 移除指定标签
+        String updatedTags = Arrays.stream(tags.split(","))
+                .map(String::trim)
+                .filter(t -> !t.equals(tag.trim()))
+                .collect(Collectors.joining(","));
+
+        image.setTags(updatedTags.isEmpty() ? null : updatedTags);
+        imageRepository.save(image);
+
+        return ResponseEntity.ok("标签删除成功！当前标签: " + (updatedTags.isEmpty() ? "无" : updatedTags));
+    }
 }

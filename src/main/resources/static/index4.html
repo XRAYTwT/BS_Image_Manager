@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片管理网站 - 黄文曦</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/css/lightbox.min.css" rel="stylesheet">
+  <style>
+    body { padding-top: 56px; background-color: #f8f9fa; }
+    .thumb { cursor: pointer; transition: transform 0.2s; border-radius: 8px; }
+    .thumb:hover { transform: scale(1.05); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    }
+    .card { border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark fixed-top">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#">图片管理网站</a>
+    <span class="navbar-text" id="userInfo">未登录</span>
+  </div>
+</nav>
+
+<div class="container mt-4">
+  <!-- 登录/注册表单 -->
+  <div id="authSection" class="card mb-4">
+    <div class="card-header bg-primary text-white">用户认证</div>
+    <div class="card-body">
+      <div class="mb-3">
+        <input type="text" id="username" class="form-control" placeholder="用户名">
+      </div>
+      <div class="mb-3">
+        <input type="email" id="email" class="form-control" placeholder="邮箱（注册时必填，任意邮箱）">
+      </div>
+      <div class="mb-3">
+        <input type="password" id="password" class="form-control" placeholder="密码（≥6位）">
+      </div>
+      <button class="btn btn-primary me-2" onclick="login()">登录</button>
+      <button class="btn btn-success" onclick="register()">注册</button>
+    </div>
+  </div>
+
+  <!-- 主功能区（登录后显示） -->
+  <div id="mainSection" style="display:none;">
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header bg-success text-white">上传图片</div>
+          <div class="card-body">
+            <input type="file" id="uploadFile" class="form-control mb-2" accept="image/*">
+            <input type="text" id="uploadTags" class="form-control mb-2" placeholder="自定义标签（逗号分隔，如 风景,夜晚）">
+            <button class="btn btn-success" onclick="uploadImage()">上传</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-header bg-info text-white">搜索图片</div>
+          <div class="card-body">
+            <input type="text" id="searchTag" class="form-control" placeholder="输入标签搜索（如 风景）">
+            <button class="btn btn-info mt-2" onclick="searchImages()">搜索</button>
+            <button class="btn btn-secondary mt-2 ms-2" onclick="loadMyImages()">显示所有</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="mb-3">我的图片</h3>
+    <div id="imageGrid" class="grid"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox.min.js"></script>
+<script>
+  let token = localStorage.getItem('token');
+  let userId = localStorage.getItem('userId');
+
+  if (token && userId) {
+    document.getElementById('authSection').style.display = 'none';
+    document.getElementById('mainSection').style.display = 'block';
+    document.getElementById('userInfo').textContent = '用户ID: ' + userId;
+    loadMyImages();
+  }
+
+  async function register() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const email = document.getElementById('email').value.trim();
+    if (!username || !password || !email) return alert("请填写用户名、密码和邮箱");
+    if (password.length < 6) return alert("密码至少6位");
+
+    const res = await fetch('api/user/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, email })
+    });
+    const msg = await res.text();
+    alert(msg);
+    if (res.ok) {
+      alert("注册成功！请登录");
+      document.getElementById('username').value = '';
+      document.getElementById('email').value = '';
+      document.getElementById('password').value = '';
+    }
+  }
+
+  async function login() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    if (!username || !password) return alert("请填写用户名和密码");
+
+    const res = await fetch('api/user/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      token = data.token;
+      localStorage.setItem('token', token);
+
+      userId = prompt("登录成功！请输入您的用户ID（在Database面板users表查看id列）");
+      if (userId) {
+        localStorage.setItem('userId', userId);
+        location.reload();
+      }
+    } else {
+      const msg = await res.text();
+      alert("登录失败：" + msg);
+    }
+  }
+
+  async function uploadImage() {
+    const file = document.getElementById('uploadFile').files[0];
+    const tags = document.getElementById('uploadTags').value.trim();
+    if (!file) return alert("请选择图片文件");
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', userId);
+    if (tags) formData.append('tags', tags);
+
+    const res = await fetch('api/image/upload', {
+      method: 'POST',
+      body: formData
+    });
+    const msg = await res.text();
+    alert(msg);
+    if (res.ok) loadMyImages();
+  }
+
+  async function loadMyImages() {
+    const res = await fetch(`api/image/my?userId=${userId}`);
+    const images = await res.json();
+    displayImages(images);
+  }
+
+  async function searchImages() {
+    const tag = document.getElementById('searchTag').value.trim();
+    if (!tag) return loadMyImages();
+    const res = await fetch(`api/image/search?tag=${encodeURIComponent(tag)}`);
+    const images = await res.json();
+    displayImages(images);
+  }
+
+  function displayImages(images) {
+    const grid = document.getElementById('imageGrid');
+    grid.innerHTML = '';
+    if (images.length === 0) {
+      grid.innerHTML = '<p class="text-center text-muted">没有找到图片</p>';
+      return;
+    }
+    images.forEach(img => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+                    <a href="${img.originalPath}" data-lightbox="gallery" data-title="${img.fileName}<br>标签: ${img.tags || '无'}<br>EXIF: ${img.exifData || '无'}">
+                        <img src="${img.thumbnailPath}" class="card-img-top thumb" alt="${img.fileName}">
+                    </a>
+                    <div class="card-body text-center">
+                        <p class="card-text"><small>${img.fileName}<br>标签: ${img.tags || '无'}</small></p>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-warning" onclick="editImage(${img.id})">编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteImage(${img.id})">删除</button>
+                            <button class="btn btn-sm btn-info" onclick="addTags(${img.id})">加标签</button>
+                            <button class="btn btn-sm btn-secondary" onclick="removeTag(${img.id})">删标签</button>
+                        </div>
+                    </div>
+                `;
+      grid.appendChild(div);
+    });
+  }
+
+  function deleteImage(id) {
+    if (!confirm("确定删除这张图片？")) return;
+    fetch(`api/image/${id}?userId=${userId}`, { method: 'DELETE' })
+            .then(res => res.text())
+            .then(msg => {
+              alert(msg);
+              loadMyImages();
+            });
+  }
+
+  function addTags(id) {
+    const tags = prompt("输入新标签（逗号分隔，如 风景,夜晚）");
+    if (!tags) return;
+    fetch(`api/image/${id}/tags?tags=${encodeURIComponent(tags)}&userId=${userId}`, { method: 'PUT' })
+            .then(res => res.text())
+            .then(msg => {
+              alert(msg);
+              loadMyImages();
+            });
+  }
+
+  function removeTag(id) {
+    const tag = prompt("输入要删除的标签");
+    if (!tag) return;
+    fetch(`api/image/${id}/tags?tag=${encodeURIComponent(tag)}&userId=${userId}`, { method: 'DELETE' })
+            .then(res => res.text())
+            .then(msg => {
+              alert(msg);
+              loadMyImages();
+            });
+  }
+
+  function editImage(id) {
+    const params = prompt("输入编辑参数（格式: rotate=90,contrast=1.5,saturation=1.5,tint=0.5,cropX=0,cropY=0,cropWidth=400,cropHeight=400）", "rotate=90");
+    if (!params) return;
+    const formData = new URLSearchParams();
+    formData.append('imageId', id);
+    params.split(',').forEach(p => {
+      const [k, v] = p.split('=');
+      if (k && v) formData.append(k.trim(), v.trim());
+    });
+    fetch('api/image/edit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData
+    })
+            .then(res => res.text())
+            .then(msg => {
+              alert(msg);
+              loadMyImages();
+            });
+  }
+</script>
+</body>
+</html>
