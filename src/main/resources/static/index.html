@@ -179,7 +179,7 @@
     async function searchImages() {
         const tag = document.getElementById('searchTag').value.trim();
         if (!tag) return loadMyImages();
-        const res = await fetch(`api/image/search?tag=${encodeURIComponent(tag)}`);
+        const res = await fetch(`http://localhost:8080/api/image/search?tag=${encodeURIComponent(tag)}&userId=${userId}`);
         const images = await res.json();
         displayImages(images);
     }
@@ -245,7 +245,7 @@
     }
 
     function editImage(id) {
-        const params = prompt("输入编辑参数（格式: rotate=90,contrast=1.5,saturation=1.5,tint=0.5,cropX=0,cropY=0,cropWidth=400,cropHeight=400）", "rotate=90");
+        const params = prompt("输入编辑参数（格式: rotate=90,contrast=1.5,saturation=1.5,tint=0.5,cropX=0,cropY=0,cropWidth=400,cropHeight=400", "rotate=90");
         if (!params) return;
         const formData = new URLSearchParams();
         formData.append('imageId', id);

@@ -189,8 +189,8 @@ public class ImageController {
 
     // 按标签查询
     @GetMapping("/search")
-    public List<Image> searchByTag(@RequestParam String tag) {
-        return imageRepository.findAll().stream()
+    public List<Image> searchByTag(@RequestParam String tag, @RequestParam Long userId) {
+        return imageRepository.findByUserId(userId).stream()
                 .filter(img -> img.getTags() != null && img.getTags().contains(tag))
                 .collect(Collectors.toList());
     }
