@@ -1,11 +1,10 @@
 ### 1. 用户注册测试
 POST http://localhost:8080/api/user/register
 Content-Type: application/json
-
 {
-  "username": "huangwenxi",
+  "username": "huangwenxi1",
   "password": "12345678",
-  "email": "huangwenxi@zju.edu.cn"
+  "email": "huangwenxi1@zju.edu.cn"
 }
 
 ### 2. 用户登录测试
@@ -44,7 +43,7 @@ GET http://localhost:8080/api/image/my?userId=1
 DELETE http://localhost:8080/api/image/2?userId=1
 
 ### 6. 查询图片
-GET http://localhost:8080/api/image/search?tag=风景
+GET http://localhost:8080/api/image/search?tag=风景&userId=1
 
 ### 7. 编辑图片
 ### 7.1 编辑测试 - 旋转90度
@@ -125,7 +124,7 @@ Content-Type: application/x-www-form-urlencoded
 
 tag=风景&userId=1
 
-### 8.4 删除标签测试2 - 删除不存在的标签（应返回无标签可删除）
+### 8.4 删除标签测试2 - 删除不存在的标签
 DELETE http://localhost:8080/api/image/50/tags
 Content-Type: application/x-www-form-urlencoded
 
